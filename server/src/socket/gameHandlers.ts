@@ -76,19 +76,17 @@ export async function startRound(io: Server, gameState: GameState) {
       player.roundScore = 0;
     }
 
-    const excludeSet = gameState.settings.randomTexts ? gameState.usedTexts : new Set<string>();
-
+    // Always pass usedTexts to prevent repeats within the same game
     const { content, textEnglish, textArabic, textId } = await selectText(
       gameState.settings.language,
       gameState.settings.difficulty,
-      excludeSet
+      gameState.usedTexts
     );
 
-    if (gameState.settings.randomTexts) {
-      gameState.usedTexts.add(content);
-      if (textEnglish) gameState.usedTexts.add(textEnglish);
-      if (textArabic) gameState.usedTexts.add(textArabic);
-    }
+    // Track used passages so they don't repeat in future rounds
+    gameState.usedTexts.add(content);
+    if (textEnglish) gameState.usedTexts.add(textEnglish);
+    if (textArabic) gameState.usedTexts.add(textArabic);
 
     gameState.currentText = content;
     gameState.currentTextId = textId;
