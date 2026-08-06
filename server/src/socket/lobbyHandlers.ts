@@ -398,3 +398,65 @@ export function handleUpdateSettings(io: Server, socket: Socket, settings: any) 
   io.to(gameState.pin).emit('settingsUpdated', settings);
   console.log(`[Lobby] Settings updated for game ${gameState.pin}`);
 }
+
+/** Host kicks a player from the game lobby */
+export async function handleKickPlayer(io: Server, socket: Socket, targetPlayerId: string) {
+  const gameState = findGameBySocket(socket.id);
+  if (!gameState) return;
+
+  const hostPlayer = gameState.players.get(socket.id);
+  if (!hostPlayer?.isHost) return;
+
+  // Find target player in the game room
+  let targetSocketId: string | null = null;
+  let targetPlayer: any = null;
+
+  for (const [sId, p] of gameState.players.entries()) {
+    if (p.playerId === targetPlayerId && !p.isHost) {
+      targetSocketId = sId;
+      targetPlayer = p;
+      break;
+    }
+  }
+
+  if (!targetSocketId || !targetPlayer) return;
+
+  // Remove player from in-memory game state
+  gameState.players.delete(targetSocketId);
+
+  // Notify the kicked player specifically
+  io.to(targetSocketId).emit('playerKicked', {
+    message: 'You have been removed from the lobby by the host.',
+  });
+
+  // Make target socket leave room
+  const targetSocket = io.sockets.sockets.get(targetSocketId);
+  if (targetSocket) {
+    targetSocket.leave(gameState.pin);
+  }
+
+  // Sync remaining players list to room
+  const remainingPlayers = Array.from(gameState.players.values()).map(p => ({
+    _id: p.playerId,
+    socketId: p.socketId,
+    gameId: gameState.gameId,
+    displayName: p.displayName,
+    avatar: p.avatar,
+    isReady: p.isReady,
+    isHost: p.isHost,
+    isConnected: p.isConnected,
+    totalScore: p.score,
+    joinedAt: new Date().toISOString(),
+  }));
+
+  io.to(gameState.pin).emit('playerLeft', {
+    playerId: targetPlayer.playerId,
+    playerName: targetPlayer.displayName,
+  });
+
+  io.to(gameState.pin).emit('playerSync', remainingPlayers);
+
+  await safeDb(() => Player.findByIdAndDelete(targetPlayerId));
+
+  console.log(`[Lobby] Host kicked ${targetPlayer.displayName} (${targetPlayerId}) from game ${gameState.pin}`);
+}

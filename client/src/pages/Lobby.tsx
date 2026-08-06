@@ -16,7 +16,7 @@ import { useGameContext } from '../contexts/GameContext';
 export default function Lobby() {
   const { pin } = useParams<{ pin: string }>();
   const navigate = useNavigate();
-  const { game, players, isHost, myPlayerId, status, startGame, cancelGame } = useGameContext();
+  const { game, players, isHost, myPlayerId, status, startGame, cancelGame, kickPlayer } = useGameContext();
 
   const joinedPlayers = players.filter(p => !p.isHost);
 
@@ -98,6 +98,8 @@ export default function Lobby() {
                 <PlayerCard
                   player={player}
                   isCurrentUser={player._id === myPlayerId}
+                  isHostView={isHost}
+                  onKick={kickPlayer}
                 />
               </motion.div>
             ))}

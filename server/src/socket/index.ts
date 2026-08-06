@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { handleCreateGame, handleJoinGame, handlePlayerReady, handleDisconnect, handleCancelGame, handleUpdateSettings } from './lobbyHandlers';
+import { handleCreateGame, handleJoinGame, handlePlayerReady, handleDisconnect, handleCancelGame, handleUpdateSettings, handleKickPlayer } from './lobbyHandlers';
 import { handleStartGame, handleNextRound, handlePlayAgain } from './gameHandlers';
 import { handleTypingProgress, handleFinishRound } from './typingHandlers';
 
@@ -98,6 +98,10 @@ export function setupSocket(io: Server): void {
 
     socket.on('updateSettings', (settings) => {
       handleUpdateSettings(io, socket, settings);
+    });
+
+    socket.on('kickPlayer', (targetPlayerId) => {
+      handleKickPlayer(io, socket, targetPlayerId);
     });
 
     // ---- Game Events ----

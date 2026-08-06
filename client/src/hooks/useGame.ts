@@ -88,6 +88,13 @@ export function useGame() {
       setCurrentRound(null);
     });
 
+    socket.on('playerKicked', ({ message }) => {
+      setStatus('idle');
+      setGame(null);
+      setError(message || 'You were removed from the room by the host');
+      navigate('/');
+    });
+
     socket.on('gameCancelled', () => {
       setStatus('cancelled');
       setGame(null);
@@ -118,12 +125,13 @@ export function useGame() {
       socket.off('leaderboardUpdate');
       socket.off('gameEnded');
       socket.off('playAgainAvailable');
+      socket.off('playerKicked');
       socket.off('gameCancelled');
       socket.off('settingsUpdated');
       socket.off('playerSync');
       socket.off('error');
     };
-  }, []);
+  }, [navigate]);
 
   // ---- Actions ----
   const createGame = useCallback((settings: GameSettings & { hostName: string; avatar: string }) => {
@@ -196,12 +204,16 @@ export function useGame() {
     }
   }, [isHost, game?.pin, navigate]);
 
+  const kickPlayer = useCallback((targetPlayerId: string) => {
+    socket.emit('kickPlayer', targetPlayerId);
+  }, []);
+
   const myPlayer = players.find(p => p._id === myPlayerId);
 
   return {
     game, players, myPlayerId, myPlayer, isHost, status, currentRound,
     countdown, leaderboard, playerProgress, roundResults, error, canPlayAgain,
-    createGame, joinGame, startGame, nextRound, setReady, playAgain,
+    createGame, joinGame, startGame, nextRound, setReady, playAgain, kickPlayer,
     sendProgress, finishRound, cancelGame, updateSettings,
     setGame, setPlayers, setMyPlayerId, setIsHost, setStatus,
   };

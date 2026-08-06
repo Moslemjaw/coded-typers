@@ -37,6 +37,9 @@ export interface ClientToServerEvents {
 
   /** Host triggers play again for the room */
   playAgain: () => void;
+
+  /** Host kicks a player from the room */
+  kickPlayer: (targetPlayerId: string) => void;
 }
 
 // ---------- Server → Client Events ----------
@@ -89,6 +92,9 @@ export interface ServerToClientEvents {
 
   /** Host triggered play again — room reset and ready */
   playAgainAvailable: (data: { game: Game; players: Player[] }) => void;
+
+  /** Player was kicked from lobby by host */
+  playerKicked: (data: { message: string }) => void;
 }
 
 // ---------- Data Payloads ----------
