@@ -2,7 +2,8 @@
 // REST API Service — Fetch wrapper for backend endpoints
 // ============================================================
 
-const BASE = '/api';
+const API_HOST = import.meta.env.VITE_API_URL || import.meta.env.VITE_SOCKET_URL || '';
+const BASE = `${API_HOST}/api`;
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, {
