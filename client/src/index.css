@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans bg-white dark:bg-dark-bg text-surface-900 dark:text-white antialiased selection:bg-primary-500/20 selection:text-primary-600;
+  }
+}
+
+/* Custom thin scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-surface-200 dark:bg-dark-border rounded-full hover:bg-surface-300 dark:hover:bg-dark-hover;
+}
+
+/* RTL support for Arabic text rendering */
+[lang="ar"] {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  direction: rtl;
+}
