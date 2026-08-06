@@ -146,7 +146,7 @@ export async function endRound(io: Server, gameState: GameState) {
     if (p.isHost) continue;
     if (!p.isFinished) {
       p.isFinished = true;
-      const baseScore = calculateScore(p.wpm, p.accuracy, p.mistakes, 0);
+      const baseScore = calculateScore(p.wpm, p.accuracy, p.mistakes, 0, p.progress);
       const roundMultiplier = 1 + (gameState.currentRound - 1) * 0.5;
       const roundScore = Math.round(baseScore * roundMultiplier);
       p.roundScore = roundScore;

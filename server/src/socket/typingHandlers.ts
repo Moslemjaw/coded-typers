@@ -71,7 +71,8 @@ export async function handleFinishRound(
     player.wpm,
     player.accuracy,
     player.mistakes,
-    player.finishPosition
+    player.finishPosition,
+    player.progress
   );
 
   // Progressive Kahoot Multiplier: Points increase with each round!
