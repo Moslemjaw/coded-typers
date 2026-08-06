@@ -208,12 +208,28 @@ export function useGame() {
     socket.emit('kickPlayer', targetPlayerId);
   }, []);
 
+  const leaveGame = useCallback(() => {
+    if (isHost) {
+      socket.emit('cancelGame');
+    }
+    if (socket.connected) {
+      socket.disconnect();
+      socket.connect();
+    }
+    setGame(null);
+    setPlayers([]);
+    setStatus('idle');
+    setMyPlayerId('');
+    setIsHost(false);
+    navigate('/');
+  }, [isHost, navigate]);
+
   const myPlayer = players.find(p => p._id === myPlayerId);
 
   return {
     game, players, myPlayerId, myPlayer, isHost, status, currentRound,
     countdown, leaderboard, playerProgress, roundResults, error, canPlayAgain,
-    createGame, joinGame, startGame, nextRound, setReady, playAgain, kickPlayer,
+    createGame, joinGame, startGame, nextRound, setReady, playAgain, kickPlayer, leaveGame,
     sendProgress, finishRound, cancelGame, updateSettings,
     setGame, setPlayers, setMyPlayerId, setIsHost, setStatus,
   };
