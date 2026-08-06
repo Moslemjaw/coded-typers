@@ -4,7 +4,7 @@ import { getCharStatus } from '../../utils/typing';
 import { TypingStats } from '../../types/game';
 
 // ============================================================
-// TypingArea — Core typing component with Arabic ligature support
+// TypingArea — Core typing component with Native Arabic Ligature Support
 // ============================================================
 
 interface TypingAreaProps {
@@ -35,9 +35,9 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
     }
   }, [isActive]);
 
-  // Word-level mapping for Arabic to preserve font ligatures and proper RTL wrapping
-  const words = isRtl ? text.split(' ') : [];
-  let globalArabicCharIdx = 0;
+  // Split Arabic into words to maintain contiguous text nodes for native ligature joining
+  const arabicWords = isRtl ? text.split(' ') : [];
+  let currentWordStartIdx = 0;
 
   return (
     <div
@@ -65,38 +65,72 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
       {/* Rendered text container */}
       <div className="bg-surface-50 dark:bg-dark-surface rounded-card p-5 sm:p-8 border border-surface-200 dark:border-dark-border">
         {isRtl ? (
-          /* Arabic RTL Rendering: Word wrappers preserve cursive joining */
+          /* Arabic RTL Rendering: Native word-level contiguous string nodes */
           <div
             dir="rtl"
-            className="text-right font-sans text-xl sm:text-2xl md:text-3xl leading-loose select-none font-medium"
+            className="text-right font-arabic text-xl sm:text-2xl md:text-3xl leading-loose select-none font-medium text-surface-800 dark:text-white"
             style={{ unicodeBidi: 'isolate' }}
           >
-            {words.map((word, wordIdx) => {
-              const wordStartIdx = globalArabicCharIdx;
-              const wordChars = word.split('');
-              // Include the space character after the word if not last
-              globalArabicCharIdx += word.length + 1;
+            {arabicWords.map((word, wordIdx) => {
+              const wordStartIdx = currentWordStartIdx;
+              const wordLength = word.length;
+              const typedLength = typed.length;
+              currentWordStartIdx += wordLength + 1; // +1 for space
+
+              let wordContent: React.ReactNode;
+
+              if (typedLength <= wordStartIdx) {
+                // Word not reached yet — rendered as single contiguous string for 100% connected Arabic font shaping
+                wordContent = (
+                  <span className="text-surface-400 dark:text-surface-500 opacity-60">
+                    {word}
+                  </span>
+                );
+              } else if (typedLength >= wordStartIdx + wordLength) {
+                // Word fully completed
+                const typedWordSlice = typed.slice(wordStartIdx, wordStartIdx + wordLength);
+                const isWordCorrect = typedWordSlice === word;
+                wordContent = (
+                  <span className={isWordCorrect ? 'text-[#3563E9] dark:text-blue-400 font-bold' : 'text-red-500 underline decoration-2 font-bold'}>
+                    {word}
+                  </span>
+                );
+              } else {
+                // Active word currently being typed
+                const charOffset = typedLength - wordStartIdx;
+                const typedPart = word.slice(0, charOffset);
+                const remainingPart = word.slice(charOffset);
+
+                const typedUserSlice = typed.slice(wordStartIdx, typedLength);
+                const isPartCorrect = typedUserSlice === typedPart;
+
+                const currentChar = remainingPart.slice(0, 1);
+                const futurePart = remainingPart.slice(1);
+
+                wordContent = (
+                  <span>
+                    {typedPart && (
+                      <span className={isPartCorrect ? 'text-[#3563E9] dark:text-blue-400 font-bold' : 'text-red-500 underline decoration-2 font-bold'}>
+                        {typedPart}
+                      </span>
+                    )}
+                    {currentChar && (
+                      <span className="text-surface-900 dark:text-white font-bold bg-blue-500/20 border-b-2 border-[#3563E9]">
+                        {currentChar}
+                      </span>
+                    )}
+                    {futurePart && (
+                      <span className="text-surface-400 dark:text-surface-500 opacity-60">
+                        {futurePart}
+                      </span>
+                    )}
+                  </span>
+                );
+              }
 
               return (
                 <span key={wordIdx} className="inline-block ml-2 mb-1">
-                  {wordChars.map((char, charInWordIdx) => {
-                    const charIdx = wordStartIdx + charInWordIdx;
-                    const status = getCharStatus(typed, text, charIdx);
-                    return (
-                      <span
-                        key={charIdx}
-                        className={`
-                          transition-colors duration-75
-                          ${status === 'correct' ? 'text-[#3563E9] dark:text-blue-400 font-bold' : ''}
-                          ${status === 'incorrect' ? 'text-red-500 underline decoration-2 decoration-red-500 font-bold' : ''}
-                          ${status === 'current' ? 'text-surface-900 dark:text-white font-bold bg-blue-500/20 border-b-2 border-[#3563E9]' : ''}
-                          ${status === 'pending' ? 'text-surface-400 dark:text-surface-500 opacity-60' : ''}
-                        `}
-                      >
-                        {char}
-                      </span>
-                    );
-                  })}
+                  {wordContent}
                 </span>
               );
             })}

@@ -8,6 +8,10 @@
   }
 }
 
+.font-arabic {
+  font-family: 'Alexandria', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
 /* Custom thin scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -23,7 +27,7 @@
 }
 
 /* RTL support for Arabic text rendering */
-[lang="ar"] {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+[lang="ar"], [dir="rtl"] {
+  font-family: 'Alexandria', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   direction: rtl;
 }
