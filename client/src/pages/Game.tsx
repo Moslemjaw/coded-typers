@@ -102,8 +102,10 @@ export default function Game() {
     return () => document.removeEventListener('contextmenu', handler);
   }, []);
 
-  // Determine passage matching player's language preference
-  const isArabic = myPlayer?.language ? myPlayer.language === 'arabic' : game?.settings?.language === 'arabic';
+  // Determine passage matching player's language preference (triple redundancy)
+  const savedLang = localStorage.getItem('ct-player-language');
+  const playerLang = myPlayer?.language || savedLang;
+  const isArabic = playerLang ? playerLang === 'arabic' : game?.settings?.language === 'arabic';
   const text = isArabic
     ? (currentRound?.textArabic || currentRound?.text || 'Loading text...')
     : (currentRound?.textEnglish || currentRound?.text || 'Loading text...');

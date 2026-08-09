@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import Text from '../models/Text';
 
 // ============================================================
-// Text Selector — Large Paragraph Pool (No Repeats Per Game)
+// Text Selector — Massive Paragraph Pool (No Repeats Per Game)
 // ============================================================
 
 const ENGLISH_EASY = [
@@ -18,6 +18,11 @@ const ENGLISH_EASY = [
   'I just spent twenty minutes looking for my phone while holding it in my hand the entire time. I even used the flashlight on it to check under the couch cushions. My brain officially needs a software update.',
   'The WiFi always drops at the worst possible moment. Never when I am doing nothing, but right when I am about to win a game or send an important message. The router is my personal nemesis.',
   'Trying to fold a fitted sheet is basically competitive origami with no instructions and zero chance of success. I just roll it into a ball and pretend it is folded. Nobody has ever successfully folded one and that is a hill I will stand on.',
+  'Watching a microwave count down the last three seconds feels longer than an entire four-year university degree. You stand there hovering your finger over the stop button like a bomb disposal expert trying to prevent the beep.',
+  'I just put my clothes in the dryer, but I already know one sock will vanish into the abyss and I will be left with a single lonely sock that matches nothing in my wardrobe.',
+  'My alarm went off this morning and I accidentally hit dismiss instead of snooze. That single mistake altered the timeline of my entire morning and turned my calm routine into a speedrun to get out the door.',
+  'Every time I try to eat soup politely, my spoon decides to splash it onto my favorite white shirt. It is an unwritten law of fashion that white clothes attract red sauce.',
+  'I bought a salad with good intentions, but three days later it turned into a green liquid bag of shame in the bottom drawer of my fridge.',
 ];
 
 const ENGLISH_MEDIUM = [
@@ -33,6 +38,11 @@ const ENGLISH_MEDIUM = [
   'When your phone is at two percent battery, it suddenly gains the ability to die faster than at any other percentage. It goes from two percent to dead in the time it takes you to say where is my charger. The last percent is basically decorative.',
   'Autocorrect has ruined more text conversations than bad signal ever could. I have told people I love duck soup, I am going to the birthday, and my personal favorite, I will be there in a sexond. I have never once meant to type any of those things.',
   'Walking into a spiderweb instantly transforms the calmest person on earth into a flailing ninja warrior. Arms go everywhere, legs kick in every direction, and you suddenly develop martial arts skills you never knew you had, all while screaming at thin air.',
+  'The speed at which a person cleans their entire house when someone says they will be over in ten minutes is faster than any professional cleaning crew. Suddenly you possess superhuman speed, stuffing random clutter into drawers you will not open again for six months.',
+  'Trying to remember a password you created three months ago is a mental obstacle course. You type in your standard password, get rejected, try adding an exclamation point, get rejected again, and when you finally click reset password, it tells you that your new password cannot be the same as your old password.',
+  'Automatic doors at grocery stores have a habit of ignoring your existence when you walk toward them with confidence. You stand there for two awkward seconds waiting for the sensor to recognize you as a living human being while people behind you watch.',
+  'The unspoken agreement between roommates is that whoever places the last item on an overflowing trash can without making it spill wins the championship. No one wants to take the trash out, so it becomes a game of extreme physics and balancing skills.',
+  'Opening a bag of chips in a quiet classroom or movie theater sounds like a dynamite explosion. Suddenly every single person turns around and looks at you as if you just set off fireworks in the building.',
 ];
 
 const ENGLISH_HARD = [
@@ -46,6 +56,11 @@ const ENGLISH_HARD = [
   'The average person spends approximately six months of their lifetime waiting for red lights to turn green. During this existential waiting period, you will question your route choices, consider alternate timelines, and develop a deeply personal rivalry with the traffic light sensor.',
   'Public bathroom hand dryers operate under the scientific principle of blowing lukewarm disappointment onto your wet hands for exactly forty-five seconds before you give up and wipe them on your pants anyway. No one in recorded history has ever achieved fully dry hands using one of these machines.',
   'Trying to take a group photo where everyone looks good simultaneously is a mathematical impossibility according to modern statistics. Someone always blinks, another person looks the wrong way, and there is always that one friend who somehow manages to look directly into the sun.',
+  'Theoretical physics suggests that time is relative, a concept best proven by comparing the duration of one minute on a treadmill to one minute scrolling through social media videos in bed. The former feels like an eternity in purgatory, while the latter evaporates three hours of sleep into thin air.',
+  'The psychological phenomenon of leaving an item in your online shopping cart for three weeks, convincing yourself you do not need it, and then instantly purchasing it the second the website sends an email saying only one item remains in stock is a masterclass in artificial urgency.',
+  'Navigating an automated customer service phone menu that repeatedly fails to recognize your spoken answers is one of the ultimate tests of human patience. You find yourself screaming representative into the microphone while a calm robotic voice politely suggests visiting their website for faster service.',
+  'The chaotic energy of attempting to carry all seventeen plastic grocery bags from your car into the house in a single trip is a matter of personal honor. Blood circulation to your fingers may be cut off entirely, but under no circumstances will you make a second trip.',
+  'When you are typing an essay and your computer screen suddenly goes black for a software update without warning, time stops. You stare at your reflection in the dark monitor, praying to the digital gods that auto-save was doing its job.',
 ];
 
 const ARABIC_EASY = [
@@ -61,6 +76,11 @@ const ARABIC_EASY = [
   'قضيت عشرين دقيقة أبحث عن هاتفي بينما كنت أمسكه في يدي طوال الوقت. حتى أنني استخدمت كشافه للبحث تحت وسائد الكنبة. عقلي يحتاج تحديث رسمياً.',
   'الواي فاي ينقطع دائماً في أسوأ لحظة ممكنة. ليس عندما لا أفعل شيئاً، بل في اللحظة التي أوشك فيها على الفوز في لعبة أو إرسال رسالة مهمة.',
   'محاولة طي ملاءة السرير المطاطية هي فن أوريغامي تنافسي بلا تعليمات. أنا فقط ألفها ككرة وأتظاهر بأنها مطوية. لم ينجح أحد في طيها أبداً وهذا موقفي النهائي.',
+  'مشاهدة الميكروويف وهو يعد التنازلي للثواني الثلاث الأخيرة أطول من دراسة أربع سنوات في الجامعة. تقف هناك وإصبعك معلق فوق زر الإيقاف كخبير تفكيك قنابل يحاول منع التنبيه عند الثانية واحدة.',
+  'وضعت ملابسي في المجفف للتو، لكني أعلم مسبقاً أن فردة جورب واحدة ستختفي في الفراغ وسأبقى بجورب واحد وحيد لا يطابق أي شيء في خزانتي.',
+  'انطلق منبهي هذا الصباح وضغطت بالخطأ على إلغاء بدلاً من تأجيل. تلك الغلطة البسيطة غيرت الجدول الزمني لصباحي بالكامل وحولت روتيني الهادئ إلى سباق سريع للخروج من الباب.',
+  'في كل مرة أحاول تناول الشوربة بتهذيب، يقرر الملعقة رشها على قميصي الأبيض المفضل. إنه قانون غير مكتوب في عالم الأزياء أن الملابس البيضاء تجذب الصلصة الحمراء.',
+  'اشتريت سلطة بنوايا حسنة، ولكن بعد ثلاثة أيام تحولت إلى كيس خضري سائل من الشبهات في أسفل درج الثلاجة.',
 ];
 
 const ARABIC_MEDIUM = [
@@ -76,6 +96,11 @@ const ARABIC_MEDIUM = [
   'عندما تكون بطارية هاتفك عند اثنين بالمئة يكتسب فجأة القدرة على الموت أسرع من أي نسبة أخرى. ينتقل من اثنين بالمئة إلى الصفر في الوقت الذي تقول فيه أين الشاحن.',
   'التصحيح التلقائي دمر محادثات نصية أكثر مما فعلت الإشارة الضعيفة في تاريخ البشرية. أخبرت أصدقائي أنني أحب شوربة البط وأنني ذاهب لعيد الميلاد وسأكون هناك في ثانوية.',
   'المشي في بيت عنكبوت يحول أهدأ شخص على الأرض إلى محارب نينجا يلوح بذراعيه في كل اتجاه ويركل بقدميه ويصرخ في الهواء وكأنه اكتشف فجأة مهارات فنون قتالية لم يكن يعرف بوجودها.',
+  'السرعة التي ينظف بها الشخص بيته بالكامل عندما يقول أحدهم إنه سيصل خلال عشر دقائق أسرع من أي فريق تنظيف محترف. وفجأة تمتلك سرعة خارقة وتدس الكراكيب العشوائية في أدراج لن تفتحها لستة أشهر.',
+  'محاولة تذكر كلمة مرور أنشأتها قبل ثلاثة أشهر هي ممر عقبات ذهني. تكتب كلمتك المعتادة فيرفضها، تجرب إضافةعلامة تعجب فيرفضها، وعندما تضغط أخيراً على إعادة تعيين كلمة المرور يخبرك أن كلمتك الجديدة لا يمكن أن تكون نفس كلمتك القديمة.',
+  'الأبواب الأوتوماتيكية في السوبرماركت لديها عادة تجاهل وجودك عندما تمشي نحوها بثقة. تقف هناك لثانيتين محرجتين تنتظر أن يتعرف المستشعر عليك ككائن حي بينما يراقبك الناس خلفك.',
+  'الاتفاق غير المعلن بين رفقاء السكن هو أن من يضع آخر قطعة على سلة المهملات الممتلئة دون أن تسقط يفوز بالبطولة. لا أحد يريد إخراج القمامة فتيتحول اللعبة إلى هندسة فيزيائية ومهارات توازن فائقة.',
+  'فتح كيس شيبس في قاعة دراسية هادئة أو سينما يبدو وكأنه انفجار ديناميت. وفجأة يلتفت الجميع وينظرون إليك وكأنك أشعلت ألعاباً نارية في المكان.',
 ];
 
 const ARABIC_HARD = [
@@ -89,6 +114,11 @@ const ARABIC_HARD = [
   'يقضي الشخص العادي حوالي ستة أشهر من حياته في الانتظار عند الإشارات الحمراء. خلال فترة الانتظار الوجودية هذه ستشكك في خيارات طريقك وتفكر في جداول زمنية بديلة وتطور عداوة شخصية عميقة مع حساس إشارة المرور.',
   'مجففات الأيدي في الحمامات العامة تعمل وفق مبدأ علمي يقضي بنفخ خيبة أمل فاترة على يديك المبللتين لمدة خمس وأربعين ثانية قبل أن تستسلم وتمسحهما بسروالك. لم ينجح أي إنسان في التاريخ في تجفيف يديه بالكامل باستخدام واحدة.',
   'محاولة التقاط صورة جماعية يبدو فيها الجميع بشكل جيد في نفس الوقت هي استحالة رياضية وفقاً للإحصاء الحديث. دائماً أحدهم يغمض عينيه وآخر ينظر في الاتجاه الخاطئ وهناك دائماً صديق ينجح بطريقة ما في النظر مباشرة إلى الشمس.',
+  'تشير الفيزياء النظرية إلى أن الوقت نسبي، وهو مفهوم يمكن إثباته بمقارنة دقيقة واحدة على جهاز المشي بدقيقة واحدة من تصفح الفيديوهات في السرير. الأولى تبدو وكأنها أبدية في الجحيم بينما الثانية تبخر ثلاث ساعات من النوم دون أثر.',
+  'الظاهرة النفسية لترك سلعة في سلة التسوق الإلكتروني لثلاثة أسابيع وإقناع نفسك بعدم حاجتك لها، ثم شرائها فوراً في اللحظة التي ترسل فيها الشركة بريداً يقول بقي قطعة واحدة فقط هي درس في إيجاد الذعر الاصطناعي.',
+  'التصفح عبر قائمة رد آلي للهاتف تفشل باستمرار في فهم إجاباتك الصوتية هو أحد الاختبارات القصوى للصبر البشري. تجد نفسك تصرخ ممتل ممثلي الخدمة في الميكروفون بينما صوت آلي هادئ يقترح زيارة الموقع.',
+  'الطاقة الفوضوية لمحاولة حمل جميع أكياس التسوق البلاستيكية السبعة عشر من السيارة إلى المنزل في رحلة واحدة هي مسألة شرف شخصي. قد تنقطع الدورة الدموية عن أصابعك تماماً ولكن تحت أي ظرف لن تقوم برحلة ثانية.',
+  'عندما تكون بصدد كتابة مقال وفجأة تنطفئ شاشة الكمبيوتر للتحديث دون تحذير، يتوقف الزمن. تحدق في انعكاس وجهك في الشاشة المظلمة وتدعو آلهة التكنولوجيا أن يكون الحفظ التلقائي قد قام بعمله.',
 ];
 
 function getPoolByLang(lang: string, diff: string): string[] {

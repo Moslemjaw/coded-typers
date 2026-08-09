@@ -15,7 +15,7 @@ export default function JoinGame() {
   const [loading, setLoading] = useState(false);
   const [pin, setPin] = useState(searchParams.get('pin') || '');
   const [name, setName] = useState('');
-  const [language, setLanguage] = useState('english');
+  const [language, setLanguage] = useState(() => localStorage.getItem('ct-player-language') || 'english');
   const [avatar, setAvatar] = useState('rocket');
   const [focusedPinIndex, setFocusedPinIndex] = useState(false);
 
@@ -23,6 +23,7 @@ export default function JoinGame() {
     e.preventDefault();
     if (pin.length !== 6 || !name.trim()) return;
     setLoading(true);
+    localStorage.setItem('ct-player-language', language);
     joinGame({ pin, displayName: name, language, avatar });
     setTimeout(() => setLoading(false), 3000);
   };
