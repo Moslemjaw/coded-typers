@@ -12,6 +12,7 @@ export interface PlayerState {
   playerId: string;
   socketId: string;
   displayName: string;
+  language: string;
   avatar: string;
   isReady: boolean;
   isHost: boolean;

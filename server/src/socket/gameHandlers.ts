@@ -328,6 +328,7 @@ export async function handlePlayAgain(io: Server, socket: Socket) {
     socketId: p.socketId,
     gameId: gameState.gameId,
     displayName: p.displayName,
+    language: p.language || 'english',
     avatar: p.avatar,
     isReady: true,
     isHost: p.isHost,

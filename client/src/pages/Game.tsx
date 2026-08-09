@@ -103,7 +103,7 @@ export default function Game() {
   }, []);
 
   // Determine passage matching player's language preference
-  const isArabic = myPlayer?.language === 'arabic';
+  const isArabic = myPlayer?.language ? myPlayer.language === 'arabic' : game?.settings?.language === 'arabic';
   const text = isArabic
     ? (currentRound?.textArabic || currentRound?.text || 'Loading text...')
     : (currentRound?.textEnglish || currentRound?.text || 'Loading text...');
