@@ -4,7 +4,7 @@ import { getCharStatus } from '../../utils/typing';
 import { TypingStats } from '../../types/game';
 
 // ============================================================
-// TypingArea — Core typing component with Native Arabic Ligature Support
+// TypingArea — Core typing component with Mobile/Android & Native Arabic Support
 // ============================================================
 
 interface TypingAreaProps {
@@ -17,7 +17,7 @@ interface TypingAreaProps {
 
 export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }: TypingAreaProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { typed, handleKeyDown, isFinished } = useTyping({
+  const { typed, handleKeyDown, handleInput, isFinished } = useTyping({
     text,
     onProgress,
     onFinish,
@@ -28,12 +28,16 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
   // Auto-detect Arabic text (RTL)
   const isRtl = /[\u0600-\u06FF]/.test(text);
 
-  // Auto-focus the hidden input
-  useEffect(() => {
-    if (isActive && inputRef.current) {
+  // Auto-focus the hidden input when active or when user taps the typing area
+  const focusInput = () => {
+    if (isActive && !isFinished && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [isActive]);
+  };
+
+  useEffect(() => {
+    focusInput();
+  }, [isActive, isFinished]);
 
   // Split Arabic into words to maintain contiguous text nodes for native ligature joining
   const arabicWords = isRtl ? text.split(' ') : [];
@@ -41,16 +45,19 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
 
   return (
     <div
-      className="relative cursor-text"
-      onClick={() => inputRef.current?.focus()}
+      className="relative cursor-text select-none touch-manipulation"
+      onClick={focusInput}
+      onTouchStart={focusInput}
       onContextMenu={e => e.preventDefault()}
     >
-      {/* Hidden input to capture keystrokes */}
+      {/* Hidden input to capture keystrokes on Desktop + Android + iOS */}
       <input
         ref={inputRef}
         type="text"
-        className="absolute opacity-0 w-0 h-0"
+        inputMode="text"
+        className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-text pointer-events-auto"
         onKeyDown={handleKeyDown}
+        onInput={handleInput}
         onPaste={e => e.preventDefault()}
         onCopy={e => e.preventDefault()}
         onCut={e => e.preventDefault()}
@@ -63,12 +70,12 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
       />
 
       {/* Rendered text container */}
-      <div className="bg-surface-50 dark:bg-dark-surface rounded-card p-5 sm:p-8 border border-surface-200 dark:border-dark-border">
+      <div className="bg-surface-50 dark:bg-dark-surface rounded-card p-4 sm:p-8 border border-surface-200 dark:border-dark-border relative z-0">
         {isRtl ? (
           /* Arabic RTL Rendering: Native word-level contiguous string nodes */
           <div
             dir="rtl"
-            className="text-right font-arabic text-xl sm:text-2xl md:text-3xl leading-loose select-none font-medium text-surface-800 dark:text-white"
+            className="text-right font-arabic text-lg sm:text-2xl md:text-3xl leading-loose font-medium text-surface-800 dark:text-white"
             style={{ unicodeBidi: 'isolate' }}
           >
             {arabicWords.map((word, wordIdx) => {
@@ -129,7 +136,7 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
               }
 
               return (
-                <span key={wordIdx} className="inline-block ml-2 mb-1">
+                <span key={wordIdx} className="inline-block ml-1.5 sm:ml-2 mb-1">
                   {wordContent}
                 </span>
               );
@@ -139,7 +146,7 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
           /* LTR English Rendering */
           <p
             dir="ltr"
-            className="text-left font-mono text-lg sm:text-xl md:text-2xl leading-relaxed tracking-wide select-none"
+            className="text-left font-mono text-base sm:text-xl md:text-2xl leading-relaxed tracking-wide"
           >
             {text.split('').map((char, i) => {
               const status = getCharStatus(typed, text, i);
@@ -163,8 +170,8 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
 
         {/* Focus prompt */}
         {!isFinished && isActive && (
-          <p className="text-center text-xs text-surface-400 mt-4">
-            {isRtl ? 'اضغط هنا للتركيز والبدء في الكتابة' : 'Click here to focus and start typing'}
+          <p className="text-center text-xs text-surface-400 mt-4 animate-pulse">
+            {isRtl ? 'اضغط هنا لفتح لوحة المفاتيح والبدء في الكتابة' : 'Tap here to open keyboard and start typing'}
           </p>
         )}
       </div>
