@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { useTyping } from '../../hooks/useTyping';
-import { getCharStatus } from '../../utils/typing';
+import { getCharStatus, normalizePassage, isArabicText, isWrongScript } from '../../utils/typing';
 import { TypingStats } from '../../types/game';
 
 // ============================================================
@@ -15,9 +15,11 @@ interface TypingAreaProps {
   onKeystroke?: (isCorrect: boolean) => void;
 }
 
-export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }: TypingAreaProps) {
+export function TypingArea({ text: rawText, isActive, onProgress, onFinish, onKeystroke }: TypingAreaProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { typed, handleKeyDown, handleInput, isFinished } = useTyping({
+  // Strip diacritics / smart punctuation so every passage is typeable on any phone keyboard
+  const text = useMemo(() => normalizePassage(rawText), [rawText]);
+  const { typed, handleKeyDown, handleInput, handleSelect, isFinished } = useTyping({
     text,
     onProgress,
     onFinish,
@@ -26,18 +28,25 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
   });
 
   // Auto-detect Arabic text (RTL)
-  const isRtl = /[\u0600-\u06FF]/.test(text);
+  const isRtl = isArabicText(text);
+  const wrongKeyboard = isActive && !isFinished && isWrongScript(typed[typed.length - 1], isRtl);
 
-  // Auto-focus the hidden input when active or when user taps the typing area
+  // Focus the hidden input. Allowed during the countdown too: iOS only opens the
+  // keyboard from a real tap, so players can tap early and be ready at "Go".
   const focusInput = () => {
-    if (isActive && !isFinished && inputRef.current) {
-      inputRef.current.focus();
+    if (!isFinished && inputRef.current && document.activeElement !== inputRef.current) {
+      inputRef.current.focus({ preventScroll: true });
     }
   };
 
   useEffect(() => {
-    focusInput();
-  }, [isActive, isFinished]);
+    if (isActive) focusInput();
+  }, [isActive]);
+
+  // Close the on-screen keyboard once the passage is done
+  useEffect(() => {
+    if (isFinished) inputRef.current?.blur();
+  }, [isFinished]);
 
   // Split Arabic into words to maintain contiguous text nodes for native ligature joining
   const arabicWords = isRtl ? text.split(' ') : [];
@@ -47,7 +56,6 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
     <div
       className="relative cursor-text select-none touch-manipulation"
       onClick={focusInput}
-      onTouchStart={focusInput}
       onContextMenu={e => e.preventDefault()}
     >
       {/* Hidden input to capture keystrokes on Desktop + Android + iOS */}
@@ -55,9 +63,16 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
         ref={inputRef}
         type="text"
         inputMode="text"
+        enterKeyHint="done"
+        lang={isRtl ? 'ar' : 'en'}
+        dir={isRtl ? 'rtl' : 'ltr'}
+        // 16px font prevents iOS Safari from zooming the page on focus
         className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-text pointer-events-auto"
+        style={{ fontSize: 16, caretColor: 'transparent' }}
         onKeyDown={handleKeyDown}
         onInput={handleInput}
+        onSelect={handleSelect}
+        onDrop={e => e.preventDefault()}
         onPaste={e => e.preventDefault()}
         onCopy={e => e.preventDefault()}
         onCut={e => e.preventDefault()}
@@ -65,7 +80,7 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        disabled={!isActive || isFinished}
+        readOnly={isFinished}
         aria-label="Type here"
       />
 
@@ -165,6 +180,15 @@ export function TypingArea({ text, isActive, onProgress, onFinish, onKeystroke }
                 </span>
               );
             })}
+          </p>
+        )}
+
+        {/* Wrong keyboard language warning */}
+        {wrongKeyboard && (
+          <p className="text-center text-sm font-semibold text-amber-600 dark:text-amber-400 mt-4" dir={isRtl ? 'rtl' : 'ltr'}>
+            {isRtl
+              ? '⌨️ لوحة المفاتيح على الإنجليزية — بدّلها إلى العربية'
+              : '⌨️ Your keyboard is set to Arabic — switch it to English'}
           </p>
         )}
 

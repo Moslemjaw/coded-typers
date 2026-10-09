@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { TypingStats } from '../types/game';
-import { calculateWPM, calculateAccuracy, calculateProgress } from '../utils/typing';
+import { calculateWPM, calculateAccuracy, calculateProgress, normalizeInput } from '../utils/typing';
 
 // ============================================================
-// useTyping — Core typing engine with full mobile/Android support
-// Uses both onKeyDown (desktop) and onInput (mobile virtual keyboards)
+// useTyping — Core typing engine for desktop, Android & iOS keyboards
+// The hidden input's value is the source of truth (see applyInput)
 // ============================================================
 
 interface UseTypingOptions {
@@ -26,7 +26,6 @@ export function useTyping({ text, onProgress, onFinish, onKeystroke, isActive = 
   const onFinishRef = useRef(onFinish);
   const onKeystrokeRef = useRef(onKeystroke);
   const typedRef = useRef(''); // Mirror of typed state for sync reads in event handlers
-  const handledByKeyDownRef = useRef(false); // Flag to prevent double-processing
 
   onProgressRef.current = onProgress;
   onFinishRef.current = onFinish;
@@ -56,96 +55,71 @@ export function useTyping({ text, onProgress, onFinish, onKeystroke, isActive = 
     };
   }, [typed.length, text.length, mistakes, isFinished]);
 
-  // Process a single character input (shared logic for both keydown and input events)
-  const processChar = useCallback((char: string) => {
-    const currentTyped = typedRef.current;
-    if (currentTyped.length >= text.length) return;
+  // Apply the full input value as the new typed text. Diffing against the previous
+  // value works the same for physical keys, virtual keyboards, IME composition
+  // (Gboard / Samsung / Arabic keyboards send the whole word-in-progress), swipe
+  // typing and autocorrect replacements.
+  const applyInput = useCallback((raw: string) => {
+    const prev = typedRef.current;
+    const next = normalizeInput(raw).slice(0, text.length);
+    if (next === prev) return;
 
-    // Start timer on first keystroke
-    if (!startTimeRef.current) {
+    let common = 0;
+    while (common < prev.length && common < next.length && prev[common] === next[common]) common++;
+
+    if (next.length > common && !startTimeRef.current) {
       startTimeRef.current = Date.now();
     }
 
-    const currentIndex = currentTyped.length;
-    const isCorrect = char === text[currentIndex];
-
-    totalCharsRef.current++;
-    if (isCorrect) {
-      correctCharsRef.current++;
-    } else {
-      setMistakes(prev => prev + 1);
+    // Score only newly added characters; deletions just shrink the typed text
+    let newMistakes = 0;
+    for (let i = common; i < next.length; i++) {
+      const isCorrect = next[i] === text[i];
+      totalCharsRef.current++;
+      if (isCorrect) correctCharsRef.current++;
+      else newMistakes++;
+      onKeystrokeRef.current?.(isCorrect);
     }
-    onKeystrokeRef.current?.(isCorrect);
+    if (newMistakes) setMistakes(m => m + newMistakes);
 
-    const newTyped = currentTyped + char;
-    typedRef.current = newTyped;
-    setTyped(newTyped);
-
-    if (newTyped.length >= text.length) {
-      setIsFinished(true);
-    }
+    typedRef.current = next;
+    setTyped(next);
+    if (next.length >= text.length) setIsFinished(true);
   }, [text]);
 
-  const processBackspace = useCallback(() => {
-    const currentTyped = typedRef.current;
-    if (currentTyped.length === 0) return;
-    const newTyped = currentTyped.slice(0, -1);
-    typedRef.current = newTyped;
-    setTyped(newTyped);
-  }, []);
+  // Keep the caret pinned to the end so edits always happen at the typing position
+  const pinCaret = (el: HTMLInputElement) => {
+    const end = el.value.length;
+    if (el.selectionStart !== end || el.selectionEnd !== end) {
+      try { el.setSelectionRange(end, end); } catch { /* unsupported input type */ }
+    }
+  };
 
-  // Desktop: onKeyDown handler (fires reliably on physical keyboards)
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!isActive || isFinished) return;
-
-    // Block paste/copy/select-all
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'c' || e.key === 'a')) {
+    // Block select-all / undo / redo and caret movement — they'd desync the input
+    if ((e.ctrlKey || e.metaKey) && ['a', 'z', 'y'].includes(e.key.toLowerCase())) {
       e.preventDefault();
       return;
     }
-
-    // Ignore modifier/function keys
-    if (e.key.length > 1 && e.key !== 'Backspace') return;
-
-    e.preventDefault();
-    handledByKeyDownRef.current = true;
-
-    if (e.key === 'Backspace') {
-      processBackspace();
-      return;
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Enter'].includes(e.key)) {
+      e.preventDefault();
     }
+  }, []);
 
-    processChar(e.key);
-  }, [isActive, isFinished, processChar, processBackspace]);
-
-  // Mobile: onInput handler (fires on virtual keyboards where keydown may not work)
   const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
-    // If keydown already handled this keystroke, skip to prevent double-processing
-    if (handledByKeyDownRef.current) {
-      handledByKeyDownRef.current = false;
+    const el = e.currentTarget;
+    if (!isActive || isFinished) {
+      // Not typing yet (countdown) or already done — discard anything entered
+      el.value = typedRef.current;
       return;
     }
+    applyInput(el.value);
+    pinCaret(el);
+  }, [isActive, isFinished, applyInput]);
 
-    if (!isActive || isFinished) return;
-
-    const inputEvent = e.nativeEvent as InputEvent;
-    const inputType = inputEvent.inputType;
-
-    if (inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') {
-      processBackspace();
-      return;
-    }
-
-    // Get the inserted character(s)
-    const data = inputEvent.data;
-    if (!data) return;
-
-    // Process each character (handles multi-char autocomplete/swipe inputs)
-    for (const char of data) {
-      if (typedRef.current.length >= text.length) break;
-      processChar(char);
-    }
-  }, [isActive, isFinished, text.length, processChar, processBackspace]);
+  const handleSelect = useCallback((e: React.SyntheticEvent<HTMLInputElement>) => {
+    pinCaret(e.currentTarget);
+  }, []);
 
   // Report progress periodically
   useEffect(() => {
@@ -182,6 +156,7 @@ export function useTyping({ text, onProgress, onFinish, onKeystroke, isActive = 
     stats: getStats(),
     handleKeyDown,
     handleInput,
+    handleSelect,
     resetTyping,
     isFinished,
   };

@@ -18,12 +18,13 @@ export default function Leaderboard() {
   // Auto-navigate when status updates
   useEffect(() => {
     if (status === 'playing') {
-      navigate(`/game/${pin}`);
+      // Host watches from the dashboard; only players go to the typing screen
+      navigate(isHost ? `/dashboard/${pin}` : `/game/${pin}`);
     }
     if (status === 'finished') {
       navigate(`/results/${pin}`);
     }
-  }, [status, pin, navigate]);
+  }, [status, pin, navigate, isHost]);
 
   const roundNum = currentRound?.roundNumber || game?.currentRound || 1;
   const totalRounds = game?.settings?.rounds || game?.totalRounds || 1;

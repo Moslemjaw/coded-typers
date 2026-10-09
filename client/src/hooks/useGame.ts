@@ -21,6 +21,14 @@ export function useGame() {
   const [playerProgress, setPlayerProgress] = useState<Map<string, PlayerProgress>>(new Map());
   const [roundResults, setRoundResults] = useState<RoundResult[]>([]);
   const [error, setError] = useState<string>('');
+  // Language this tab joined with. Kept per tab (sessionStorage) so several players
+  // sharing one browser — or a host on the same device — can't change each other's language.
+  const [myLanguage, setMyLanguage] = useState<'english' | 'arabic'>(() => {
+    try {
+      const v = sessionStorage.getItem('ct-session-language') || localStorage.getItem('ct-player-language');
+      return v === 'arabic' ? 'arabic' : 'english';
+    } catch { return 'english'; }
+  });
   const [canPlayAgain, setCanPlayAgain] = useState(false);
   const roundRef = useRef(currentRound);
   roundRef.current = currentRound;
@@ -149,7 +157,10 @@ export function useGame() {
   }, [navigate]);
 
   const joinGame = useCallback((data: { pin: string; displayName: string; language: string; avatar: string }) => {
-    socket.emit('joinGame', data, (response: any) => {
+    const lang = data.language === 'arabic' ? 'arabic' : 'english';
+    setMyLanguage(lang);
+    try { sessionStorage.setItem('ct-session-language', lang); } catch { /* storage blocked */ }
+    socket.emit('joinGame', { ...data, language: lang }, (response: any) => {
       if (response.success) {
         setGame(response.game);
         setPlayers(response.players || []);
@@ -227,7 +238,7 @@ export function useGame() {
   const myPlayer = players.find(p => p._id === myPlayerId);
 
   return {
-    game, players, myPlayerId, myPlayer, isHost, status, currentRound,
+    game, players, myPlayerId, myPlayer, myLanguage, isHost, status, currentRound,
     countdown, leaderboard, playerProgress, roundResults, error, canPlayAgain,
     createGame, joinGame, startGame, nextRound, setReady, playAgain, kickPlayer, leaveGame,
     sendProgress, finishRound, cancelGame, updateSettings,

@@ -10,14 +10,14 @@ import { AVATAR_PRESETS } from '../types/player';
 export default function Profile() {
   const [name, setName] = useState(() => localStorage.getItem('ct-displayName') || '');
   const [avatar, setAvatar] = useState(() => localStorage.getItem('ct-avatar') || 'rocket');
-  const [language, setLanguage] = useState(() => localStorage.getItem('ct-language') || 'english');
+  const [language, setLanguage] = useState(() => localStorage.getItem('ct-player-language') || 'english');
   const [saved, setSaved] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     localStorage.setItem('ct-displayName', name);
     localStorage.setItem('ct-avatar', avatar);
-    localStorage.setItem('ct-language', language);
+    localStorage.setItem('ct-player-language', language);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };

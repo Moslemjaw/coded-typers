@@ -11,10 +11,17 @@ import { useTimer } from '../hooks/useTimer';
 import { soundSystem } from '../utils/audio';
 import { TypingStats } from '../types/game';
 
+// Remount per round so countdown, timer, stats and typing state always start fresh —
+// needed when "Leaderboard After Every Round" is off and the page never navigates away
 export default function Game() {
+  const { currentRound } = useGameContext();
+  return <GameRound key={currentRound?.roundNumber ?? 0} />;
+}
+
+function GameRound() {
   const { pin } = useParams<{ pin: string }>();
   const navigate = useNavigate();
-  const { game, currentRound, status, sendProgress, finishRound, leaderboard, myPlayer } = useGameContext();
+  const { game, currentRound, status, sendProgress, finishRound, leaderboard, myLanguage } = useGameContext();
 
   const [showCountdown, setShowCountdown] = useState(true);
   const [isTypingActive, setIsTypingActive] = useState(false);
@@ -102,10 +109,8 @@ export default function Game() {
     return () => document.removeEventListener('contextmenu', handler);
   }, []);
 
-  // Determine passage matching player's language preference (triple redundancy)
-  const savedLang = localStorage.getItem('ct-player-language');
-  const playerLang = myPlayer?.language || savedLang;
-  const isArabic = playerLang ? playerLang === 'arabic' : game?.settings?.language === 'arabic';
+  // Each player always gets the language they chose when joining — nothing else decides it
+  const isArabic = myLanguage === 'arabic';
   const text = isArabic
     ? (currentRound?.textArabic || currentRound?.text || 'Loading text...')
     : (currentRound?.textEnglish || currentRound?.text || 'Loading text...');
@@ -179,6 +184,7 @@ export default function Game() {
           </div>
 
           <TypingArea
+            key={text}
             text={text}
             isActive={isTypingActive}
             onProgress={handleProgress}

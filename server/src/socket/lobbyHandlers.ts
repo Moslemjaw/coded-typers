@@ -167,6 +167,9 @@ export async function handleJoinGame(
       return callback({ success: false, error: 'Game not found' });
     }
 
+    // Each player types in the language they chose — only 'english' or 'arabic'
+    const playerLanguage = language === 'arabic' ? 'arabic' : 'english';
+
     // Check if game has already started (allow reconnect if enabled)
     if (gameState.status !== 'waiting' && !gameState.settings.allowReconnect) {
       return callback({ success: false, error: 'Game has already started' });
@@ -182,6 +185,7 @@ export async function handleJoinGame(
       gameState.players.delete(oldSocketId);
       existingPlayer.socketId = socket.id;
       existingPlayer.isConnected = true;
+      existingPlayer.language = playerLanguage;
       gameState.players.set(socket.id, existingPlayer);
       socket.join(pin);
 
@@ -190,7 +194,7 @@ export async function handleJoinGame(
         socketId: p.socketId,
         gameId: gameState.gameId,
         displayName: p.displayName,
-        language: language || 'english',
+        language: p.language || 'english',
         avatar: p.avatar,
         isReady: true,
         isHost: p.isHost,
@@ -232,7 +236,7 @@ export async function handleJoinGame(
         socketId: socket.id,
         gameId: gameState.gameId,
         displayName: displayName.trim(),
-        language: language || 'english',
+        language: playerLanguage,
         avatar: avatar || 'rocket',
         isReady: true,
       });
@@ -244,7 +248,7 @@ export async function handleJoinGame(
       playerId,
       socketId: socket.id,
       displayName: displayName.trim(),
-      language: language || 'english',
+      language: playerLanguage,
       avatar: avatar || 'rocket',
       isReady: true,
       isHost: false,
@@ -282,7 +286,7 @@ export async function handleJoinGame(
       socketId: socket.id,
       gameId: gameState.gameId,
       displayName: displayName.trim(),
-      language: language || 'english',
+      language: playerLanguage,
       avatar: avatar || 'rocket',
       isReady: true,
       isHost: false,

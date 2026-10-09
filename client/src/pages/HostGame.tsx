@@ -31,7 +31,6 @@ export default function HostGame() {
     e.preventDefault();
     if (!form.name.trim()) return;
     setLoading(true);
-    localStorage.setItem('ct-player-language', form.language);
     createGame({
       name: form.name,
       hostName: 'Host',
