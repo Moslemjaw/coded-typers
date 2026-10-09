@@ -40,8 +40,8 @@ export function validateGameSettings(settings: Record<string, any>): ValidationR
 
   if (settings.maxPlayers !== undefined) {
     const mp = Number(settings.maxPlayers);
-    if (isNaN(mp) || mp < 2 || mp > 50) {
-      errors.push('Max players must be between 2 and 50');
+    if (isNaN(mp) || mp < 2 || mp > 100) {
+      errors.push('Max players must be between 2 and 100');
     }
   }
 

@@ -34,7 +34,7 @@ const GameSchema = new Schema<IGame>({
   rounds: { type: Number, default: 3, min: 1, max: 10 },
   typingTime: { type: Number, default: 60, enum: [15, 30, 60, 90] },
   difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' },
-  maxPlayers: { type: Number, default: 30, min: 2, max: 50 },
+  maxPlayers: { type: Number, default: 100, min: 2, max: 100 },
   randomTexts: { type: Boolean, default: true },
   leaderboardAfterRound: { type: Boolean, default: true },
   allowReconnect: { type: Boolean, default: true },
