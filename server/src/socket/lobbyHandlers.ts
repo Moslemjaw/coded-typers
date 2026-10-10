@@ -1,10 +1,12 @@
 import { Server, Socket } from 'socket.io';
 import mongoose from 'mongoose';
+import { randomUUID } from 'crypto';
 import Game from '../models/Game';
 import Player from '../models/Player';
 import { generateUniquePin } from '../utils/generatePin';
 import { validateGameSettings, validateDisplayName, validatePin } from '../middlewares/validation';
 import { activeGames, findGameBySocket, GameState, PlayerState } from './index';
+import { buildLeaderboard } from './gameHandlers';
 
 async function safeDb(fn: () => Promise<any>) {
   if (mongoose.connection.readyState === 1) {
@@ -32,6 +34,7 @@ export async function handleCreateGame(
     const pin = await generateUniquePin();
     const gameId = new mongoose.Types.ObjectId().toString();
     const hostPlayerId = new mongoose.Types.ObjectId().toString();
+    const hostSessionToken = randomUUID();
 
     await safeDb(async () => {
       const game = new Game({
@@ -88,6 +91,8 @@ export async function handleCreateGame(
       },
       currentRound: 0,
       currentText: '',
+      currentTextEnglish: '',
+      currentTextArabic: '',
       currentTextId: null,
       players: new Map<string, PlayerState>(),
       roundTimer: null,
@@ -114,6 +119,7 @@ export async function handleCreateGame(
       finishTime: 0,
       score: 0,
       roundScore: 0,
+      sessionToken: hostSessionToken,
     });
 
     activeGames.set(pin, gameState);
@@ -134,6 +140,7 @@ export async function handleCreateGame(
         players: [],
       },
       playerId: hostPlayerId,
+      sessionToken: hostSessionToken,
     });
 
     console.log(`[Lobby] Game created: ${pin} by ${settings.hostName || 'Host'}`);
@@ -186,6 +193,7 @@ export async function handleJoinGame(
       existingPlayer.socketId = socket.id;
       existingPlayer.isConnected = true;
       existingPlayer.language = playerLanguage;
+      cancelPendingRemoval(pin, existingPlayer.playerId);
       gameState.players.set(socket.id, existingPlayer);
       socket.join(pin);
 
@@ -221,6 +229,7 @@ export async function handleJoinGame(
         },
         players: playersList,
         playerId: existingPlayer.playerId,
+        sessionToken: existingPlayer.sessionToken,
       });
     }
 
@@ -262,6 +271,7 @@ export async function handleJoinGame(
       finishTime: 0,
       score: 0,
       roundScore: 0,
+      sessionToken: randomUUID(),
     };
 
     gameState.players.set(socket.id, playerState);
@@ -311,6 +321,7 @@ export async function handleJoinGame(
       },
       players: playersList,
       playerId,
+      sessionToken: playerState.sessionToken,
     });
 
     console.log(`[Lobby] ${displayName} joined game ${pin} (${gameState.players.size}/${gameState.settings.maxPlayers})`);
@@ -337,6 +348,20 @@ export function handlePlayerReady(io: Server, socket: Socket) {
 }
 
 /** Handle player disconnect */
+/** How long a disconnected player's seat is held for a refresh or network drop */
+const REJOIN_GRACE_MS = 60_000;
+const pendingRemovals = new Map<string, NodeJS.Timeout>(); // `${pin}:${playerId}` -> timer
+
+function cancelPendingRemoval(pin: string, playerId: string) {
+  const key = `${pin}:${playerId}`;
+  const timer = pendingRemovals.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    pendingRemovals.delete(key);
+  }
+}
+
+/** Socket dropped (page refresh, phone sleep, network blip) — hold the seat, remove only if they don't come back */
 export async function handleDisconnect(io: Server, socket: Socket) {
   const gameState = findGameBySocket(socket.id);
   if (!gameState) return;
@@ -344,7 +369,33 @@ export async function handleDisconnect(io: Server, socket: Socket) {
   const player = gameState.players.get(socket.id);
   if (!player) return;
 
-  console.log(`[Socket] Disconnected: ${player.displayName} from game ${gameState.pin}`);
+  player.isConnected = false;
+  console.log(`[Socket] Disconnected: ${player.displayName} from game ${gameState.pin} (holding seat ${REJOIN_GRACE_MS / 1000}s)`);
+
+  cancelPendingRemoval(gameState.pin, player.playerId);
+  const key = `${gameState.pin}:${player.playerId}`;
+  pendingRemovals.set(key, setTimeout(() => {
+    pendingRemovals.delete(key);
+    // Still the same dropped socket? Then they really left.
+    if (activeGames.get(gameState.pin) === gameState && gameState.players.get(socket.id) === player && !player.isConnected) {
+      removePlayer(io, gameState, socket.id, player);
+    }
+  }, REJOIN_GRACE_MS));
+}
+
+/** Player pressed Exit — remove right away, no grace period */
+export async function handleLeaveGame(io: Server, socket: Socket) {
+  const gameState = findGameBySocket(socket.id);
+  if (!gameState) return;
+  const player = gameState.players.get(socket.id);
+  if (!player) return;
+  cancelPendingRemoval(gameState.pin, player.playerId);
+  player.isConnected = false;
+  await removePlayer(io, gameState, socket.id, player);
+}
+
+async function removePlayer(io: Server, gameState: GameState, socketId: string, player: PlayerState) {
+  console.log(`[Lobby] ${player.displayName} left game ${gameState.pin}`);
 
   if (player.isHost) {
     if (gameState.status === 'waiting') {
@@ -354,17 +405,14 @@ export async function handleDisconnect(io: Server, socket: Socket) {
       await safeDb(() => Game.findByIdAndUpdate(gameState.gameId, { status: 'finished' }));
       console.log(`[Lobby] Game ${gameState.pin} cancelled (host left)`);
     } else {
-      player.isConnected = false;
       io.to(gameState.pin).emit('playerLeft', {
         playerId: player.playerId,
         playerName: player.displayName,
       });
     }
   } else {
-    if (gameState.settings.allowReconnect && gameState.status !== 'waiting') {
-      player.isConnected = false;
-    } else {
-      gameState.players.delete(socket.id);
+    if (!(gameState.settings.allowReconnect && gameState.status !== 'waiting')) {
+      gameState.players.delete(socketId);
     }
 
     io.to(gameState.pin).emit('playerLeft', {
@@ -374,6 +422,104 @@ export async function handleDisconnect(io: Server, socket: Socket) {
 
     await safeDb(() => Player.findByIdAndUpdate(player.playerId, { isConnected: false }));
   }
+}
+
+/** Reclaim a seat after a page refresh / reconnect using the tab's session token */
+export function handleRejoinGame(
+  io: Server,
+  socket: Socket,
+  data: { pin?: string; playerId?: string; sessionToken?: string },
+  callback: (response: any) => void
+) {
+  const { pin, playerId, sessionToken } = data || {};
+  const gameState = pin ? activeGames.get(pin) : undefined;
+  if (!gameState || !playerId || !sessionToken) {
+    return callback({ success: false, error: 'This game is no longer available' });
+  }
+
+  const entry = Array.from(gameState.players.entries()).find(
+    ([, p]) => p.playerId === playerId && p.sessionToken === sessionToken
+  );
+  if (!entry) {
+    return callback({ success: false, error: 'You are no longer in this game' });
+  }
+
+  const [oldSocketId, player] = entry;
+  cancelPendingRemoval(gameState.pin, player.playerId);
+
+  if (oldSocketId !== socket.id) {
+    gameState.players.delete(oldSocketId);
+    player.socketId = socket.id;
+    gameState.players.set(socket.id, player);
+    // An old socket that hasn't timed out yet must not act for this player anymore
+    io.sockets.sockets.get(oldSocketId)?.disconnect(true);
+  }
+  if (player.isHost) gameState.hostSocketId = socket.id;
+  player.isConnected = true;
+  socket.join(gameState.pin);
+
+  const players = Array.from(gameState.players.values()).map(p => ({
+    _id: p.playerId,
+    socketId: p.socketId,
+    gameId: gameState.gameId,
+    displayName: p.displayName,
+    language: p.language || 'english',
+    avatar: p.avatar,
+    isReady: true,
+    isHost: p.isHost,
+    isConnected: p.isConnected,
+    totalScore: p.score,
+    joinedAt: new Date().toISOString(),
+  }));
+  io.to(gameState.pin).emit('playerSync', players);
+
+  const host = Array.from(gameState.players.values()).find(p => p.isHost);
+  const inRound = gameState.status === 'playing' || gameState.status === 'round-end';
+
+  callback({
+    success: true,
+    game: {
+      _id: gameState.gameId,
+      pin: gameState.pin,
+      name: gameState.settings.name,
+      hostId: host?.playerId || '',
+      settings: gameState.settings,
+      status: gameState.status,
+      currentRound: gameState.currentRound,
+      totalRounds: gameState.settings.rounds,
+      createdAt: new Date().toISOString(),
+      players: [],
+    },
+    players,
+    playerId: player.playerId,
+    isHost: player.isHost,
+    language: player.language === 'arabic' ? 'arabic' : 'english',
+    status: gameState.status,
+    round: inRound && gameState.currentRound > 0 ? {
+      roundNumber: gameState.currentRound,
+      text: gameState.currentText,
+      textEnglish: gameState.currentTextEnglish,
+      textArabic: gameState.currentTextArabic,
+      textId: gameState.currentTextId || '',
+      timeLimit: gameState.settings.typingTime,
+      // Negative while the pre-round countdown is still running
+      elapsedMs: Date.now() - gameState.roundStartTime,
+      finished: player.isFinished || gameState.status !== 'playing',
+    } : null,
+    progress: Array.from(gameState.players.values()).filter(p => !p.isHost).map(p => ({
+      playerId: p.playerId,
+      playerName: p.displayName,
+      avatar: p.avatar,
+      wpm: p.wpm,
+      accuracy: p.accuracy,
+      progress: p.progress,
+      mistakes: p.mistakes,
+      isFinished: p.isFinished,
+    })),
+    leaderboard: gameState.currentRound > 0 ? buildLeaderboard(gameState) : [],
+  });
+
+  console.log(`[Lobby] ${player.displayName} rejoined game ${gameState.pin}`);
 }
 
 /** Host cancels the game */

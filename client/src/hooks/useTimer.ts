@@ -8,10 +8,12 @@ interface UseTimerOptions {
   duration: number; // seconds
   onExpire?: () => void;
   autoStart?: boolean;
+  /** Start from this many seconds instead of the full duration (resuming after a refresh) */
+  initialRemaining?: number;
 }
 
-export function useTimer({ duration, onExpire, autoStart = false }: UseTimerOptions) {
-  const [timeRemaining, setTimeRemaining] = useState(duration);
+export function useTimer({ duration, onExpire, autoStart = false, initialRemaining }: UseTimerOptions) {
+  const [timeRemaining, setTimeRemaining] = useState(initialRemaining ?? duration);
   const [isRunning, setIsRunning] = useState(autoStart);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onExpireRef = useRef(onExpire);
@@ -42,8 +44,11 @@ export function useTimer({ duration, onExpire, autoStart = false }: UseTimerOpti
     return clear;
   }, [isRunning, clear]);
 
-  // Reset when duration changes
+  // Reset when duration changes (not on mount, so initialRemaining is kept)
+  const prevDurationRef = useRef(duration);
   useEffect(() => {
+    if (prevDurationRef.current === duration) return;
+    prevDurationRef.current = duration;
     setTimeRemaining(duration);
   }, [duration]);
 

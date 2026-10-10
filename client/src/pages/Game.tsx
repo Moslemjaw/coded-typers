@@ -14,8 +14,17 @@ import { TypingStats } from '../types/game';
 // Remount per round so countdown, timer, stats and typing state always start fresh —
 // needed when "Leaderboard After Every Round" is off and the page never navigates away
 export default function Game() {
-  const { currentRound } = useGameContext();
-  return <GameRound key={currentRound?.roundNumber ?? 0} />;
+  const { currentRound, rejoining } = useGameContext();
+  if (!currentRound) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <p className="text-sm font-semibold text-surface-500 animate-pulse">
+          {rejoining ? 'Reconnecting to your game…' : 'Getting the round ready…'}
+        </p>
+      </div>
+    );
+  }
+  return <GameRound key={currentRound.roundNumber} />;
 }
 
 function GameRound() {
@@ -23,15 +32,26 @@ function GameRound() {
   const navigate = useNavigate();
   const { game, currentRound, status, sendProgress, finishRound, leaderboard, myLanguage } = useGameContext();
 
-  const [showCountdown, setShowCountdown] = useState(true);
-  const [isTypingActive, setIsTypingActive] = useState(false);
-  const [stats, setStats] = useState({ wpm: 0, accuracy: 100, mistakes: 0, progress: 0 });
-  const [hasFinished, setHasFinished] = useState(false);
-
   const duration = currentRound?.timeLimit || game?.settings?.typingTime || 60;
+
+  // Came back mid-round (page refresh)? Skip the countdown and continue with the time left.
+  const [resume] = useState(() => {
+    const startsAt = currentRound?.typingStartsAt;
+    const alreadyFinished = !!currentRound?.finished;
+    const inProgress = startsAt !== undefined && Date.now() >= startsAt;
+    const left = inProgress ? Math.max(0, Math.ceil(duration - (Date.now() - startsAt!) / 1000)) : duration;
+    return { inProgress, alreadyFinished, left };
+  });
+
+  const [showCountdown, setShowCountdown] = useState(!resume.inProgress && !resume.alreadyFinished);
+  const [isTypingActive, setIsTypingActive] = useState(resume.inProgress && !resume.alreadyFinished);
+  const [stats, setStats] = useState({ wpm: 0, accuracy: 100, mistakes: 0, progress: 0 });
+  const [hasFinished, setHasFinished] = useState(resume.alreadyFinished);
 
   const { timeRemaining, start: startTimer } = useTimer({
     duration,
+    initialRemaining: resume.left,
+    autoStart: resume.inProgress && !resume.alreadyFinished,
     onExpire: () => {
       if (!hasFinished) {
         handleFinish(stats as any);
@@ -101,6 +121,19 @@ function GameRound() {
       progress: typingStats.progress,
     });
   }, [hasFinished, finishRound, duration, game?.settings?.soundEffects]);
+
+  // Stop mobile pull-to-refresh from reloading the page mid-round
+  useEffect(() => {
+    const html = document.documentElement;
+    const prevHtml = html.style.overscrollBehaviorY;
+    const prevBody = document.body.style.overscrollBehaviorY;
+    html.style.overscrollBehaviorY = 'none';
+    document.body.style.overscrollBehaviorY = 'none';
+    return () => {
+      html.style.overscrollBehaviorY = prevHtml;
+      document.body.style.overscrollBehaviorY = prevBody;
+    };
+  }, []);
 
   // Disable right-click on entire page
   useEffect(() => {

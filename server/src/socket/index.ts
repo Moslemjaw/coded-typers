@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { handleCreateGame, handleJoinGame, handlePlayerReady, handleDisconnect, handleCancelGame, handleUpdateSettings, handleKickPlayer } from './lobbyHandlers';
+import { handleCreateGame, handleJoinGame, handlePlayerReady, handleDisconnect, handleCancelGame, handleUpdateSettings, handleKickPlayer, handleRejoinGame, handleLeaveGame } from './lobbyHandlers';
 import { handleStartGame, handleNextRound, handlePlayAgain } from './gameHandlers';
 import { handleTypingProgress, handleFinishRound } from './typingHandlers';
 
@@ -26,6 +26,7 @@ export interface PlayerState {
   finishTime: number;
   score: number; // Cumulative total score across all rounds
   roundScore: number; // Score earned in current round
+  sessionToken: string; // Secret handed to this player's tab so a refresh can reclaim the seat
 }
 
 export interface GameState {
@@ -48,11 +49,13 @@ export interface GameState {
   };
   currentRound: number;
   currentText: string;
+  currentTextEnglish: string;
+  currentTextArabic: string;
   currentTextId: string | null;
   players: Map<string, PlayerState>; // socketId -> PlayerState
   roundTimer: NodeJS.Timeout | null;
   finishedCount: number;
-  roundStartTime: number;
+  roundStartTime: number; // When typing starts (after the pre-round countdown)
   usedTexts: Set<string>; // Set of text contents already used in previous rounds
 }
 
@@ -116,6 +119,15 @@ export function setupSocket(io: Server): void {
 
     socket.on('playAgain', () => {
       handlePlayAgain(io, socket);
+    });
+
+    // ---- Session Events (page refresh / network drop) ----
+    socket.on('rejoinGame', (data, callback) => {
+      handleRejoinGame(io, socket, data, callback);
+    });
+
+    socket.on('leaveGame', () => {
+      handleLeaveGame(io, socket);
     });
 
     // ---- Typing Events ----

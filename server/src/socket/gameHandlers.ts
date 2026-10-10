@@ -29,6 +29,8 @@ export async function handleStartGame(io: Server, socket: Socket) {
     return;
   }
 
+  if (gameState.status !== 'waiting') return; // ignore double-taps on Start
+
   const typingPlayers = Array.from(gameState.players.values()).filter(p => !p.isHost);
   if (typingPlayers.length < 1) {
     socket.emit('error', { message: 'Need at least 1 player to join before starting' });
@@ -38,19 +40,14 @@ export async function handleStartGame(io: Server, socket: Socket) {
   gameState.status = 'countdown';
   await safeDb(() => Game.findByIdAndUpdate(gameState.gameId, { status: 'countdown' }));
 
-  console.log(`[Game] Starting countdown for game ${gameState.pin}`);
+  console.log(`[Game] Starting game ${gameState.pin}`);
 
-  let count = 3;
-  const countdownInterval = setInterval(() => {
-    io.to(gameState.pin).emit('gameCountdown', { countdown: count });
-    count--;
-
-    if (count < 0) {
-      clearInterval(countdownInterval);
-      startRound(io, gameState);
-    }
-  }, 1000);
+  // Each round shows its own 3-2-1 countdown on the clients (see ROUND_COUNTDOWN_MS)
+  startRound(io, gameState);
 }
+
+/** Clients show a 3-2-1-GO countdown (Countdown.tsx, 3.8s) before typing; the round clock starts after it */
+export const ROUND_COUNTDOWN_MS = 3800;
 
 /** Start a new round — select UNIQUE passages, preserve cumulative scores */
 export async function startRound(io: Server, gameState: GameState) {
@@ -58,7 +55,7 @@ export async function startRound(io: Server, gameState: GameState) {
     gameState.currentRound++;
     gameState.status = 'playing';
     gameState.finishedCount = 0;
-    gameState.roundStartTime = Date.now();
+    gameState.roundStartTime = Date.now() + ROUND_COUNTDOWN_MS;
 
     if (!gameState.usedTexts) {
       gameState.usedTexts = new Set<string>();
@@ -89,6 +86,8 @@ export async function startRound(io: Server, gameState: GameState) {
     if (textArabic) gameState.usedTexts.add(textArabic);
 
     gameState.currentText = content;
+    gameState.currentTextEnglish = textEnglish;
+    gameState.currentTextArabic = textArabic;
     gameState.currentTextId = textId;
 
     await safeDb(async () => {
@@ -114,13 +113,14 @@ export async function startRound(io: Server, gameState: GameState) {
       textArabic,
       textId: textId || '',
       timeLimit: gameState.settings.typingTime,
+      startsInMs: ROUND_COUNTDOWN_MS,
     });
 
     console.log(`[Game] Round ${gameState.currentRound}/${gameState.settings.rounds} started for game ${gameState.pin}`);
 
     gameState.roundTimer = setTimeout(() => {
       endRound(io, gameState);
-    }, gameState.settings.typingTime * 1000);
+    }, gameState.settings.typingTime * 1000 + ROUND_COUNTDOWN_MS);
 
   } catch (error) {
     console.error('[Game] Error starting round:', error);
@@ -298,6 +298,8 @@ export async function handlePlayAgain(io: Server, socket: Socket) {
   gameState.status = 'waiting';
   gameState.currentRound = 0;
   gameState.currentText = '';
+  gameState.currentTextEnglish = '';
+  gameState.currentTextArabic = '';
   gameState.currentTextId = null;
   gameState.finishedCount = 0;
   if (gameState.usedTexts) gameState.usedTexts.clear();
@@ -357,7 +359,7 @@ export async function handlePlayAgain(io: Server, socket: Socket) {
 }
 
 /** Build leaderboard from current game state (only non-host players) */
-function buildLeaderboard(gameState: GameState) {
+export function buildLeaderboard(gameState: GameState) {
   const players = Array.from(gameState.players.values()).filter(p => !p.isHost);
 
   const entries = players.map(p => ({

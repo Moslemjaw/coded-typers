@@ -1,12 +1,29 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socket from '../services/socket';
+import { loadSession, saveSession, clearSession } from '../services/session';
 import { Game, GameSettings, RoundData, RoundResult, LeaderboardEntry } from '../types/game';
 import { Player, PlayerProgress } from '../types/player';
 
 // ============================================================
 // useGame — Full game state management via Socket.io
 // ============================================================
+
+const IN_GAME_ROUTES = ['/lobby/', '/game/', '/dashboard/', '/leaderboard/', '/results/'];
+
+/** Page a player/host belongs on for a given server status */
+function routeFor(status: string, isHost: boolean, pin: string, leaderboardAfterRound: boolean | undefined, path: string) {
+  switch (status) {
+    case 'waiting': return `/lobby/${pin}`;
+    case 'countdown':
+    case 'playing': return isHost ? `/dashboard/${pin}` : `/game/${pin}`;
+    case 'round-end':
+      if (isHost || leaderboardAfterRound !== false) return `/leaderboard/${pin}`;
+      return `/game/${pin}`;
+    case 'finished': return `/results/${pin}`;
+    default: return path;
+  }
+}
 
 export function useGame() {
   const navigate = useNavigate();
@@ -30,6 +47,8 @@ export function useGame() {
     } catch { return 'english'; }
   });
   const [canPlayAgain, setCanPlayAgain] = useState(false);
+  // True while a refreshed tab is reclaiming its seat
+  const [rejoining, setRejoining] = useState(() => !!loadSession());
   const roundRef = useRef(currentRound);
   roundRef.current = currentRound;
 
@@ -53,7 +72,7 @@ export function useGame() {
     });
 
     socket.on('startRound', (data: RoundData) => {
-      setCurrentRound(data);
+      setCurrentRound({ ...data, typingStartsAt: Date.now() + (data.startsInMs ?? 0) });
       setCountdown(null);
       setStatus('playing');
       setPlayerProgress(new Map());
@@ -97,6 +116,7 @@ export function useGame() {
     });
 
     socket.on('playerKicked', ({ message }) => {
+      clearSession();
       setStatus('idle');
       setGame(null);
       setError(message || 'You were removed from the room by the host');
@@ -104,6 +124,7 @@ export function useGame() {
     });
 
     socket.on('gameCancelled', () => {
+      clearSession();
       setStatus('cancelled');
       setGame(null);
     });
@@ -141,6 +162,51 @@ export function useGame() {
     };
   }, [navigate]);
 
+  // ---- Rejoin after refresh / reconnect ----
+  // Runs on every (re)connect: page reloads and phones dropping the connection both get a new socket.
+  useEffect(() => {
+    const tryRejoin = () => {
+      const session = loadSession();
+      if (!session) { setRejoining(false); return; }
+      setRejoining(true);
+      socket.emit('rejoinGame' as any, session, (res: any) => {
+        setRejoining(false);
+        const path = window.location.pathname;
+        if (!res?.success) {
+          clearSession();
+          if (IN_GAME_ROUTES.some(r => path.startsWith(r))) {
+            setGame(null);
+            setStatus('idle');
+            setError(res?.error || 'This game is no longer available');
+            navigate('/', { replace: true });
+          }
+          return;
+        }
+        setGame(res.game);
+        setPlayers(res.players || []);
+        setMyPlayerId(res.playerId);
+        setIsHost(!!res.isHost);
+        setMyLanguage(res.language === 'arabic' ? 'arabic' : 'english');
+        try { sessionStorage.setItem('ct-session-language', res.language); } catch { /* storage blocked */ }
+        setLeaderboard(res.leaderboard || []);
+        setPlayerProgress(new Map((res.progress || []).map((p: PlayerProgress) => [p.playerId, p])));
+        setCurrentRound(prev => {
+          if (!res.round) return null;
+          // Same round still on screen (brief network drop): keep it so typing isn't reset
+          if (prev && prev.roundNumber === res.round.roundNumber) return prev;
+          return { ...res.round, typingStartsAt: Date.now() - res.round.elapsedMs };
+        });
+        setStatus(res.status);
+        const target = routeFor(res.status, !!res.isHost, session.pin, res.game?.settings?.leaderboardAfterRound, path);
+        if (target !== path) navigate(target, { replace: true });
+      });
+    };
+
+    socket.on('connect', tryRejoin);
+    if (socket.connected) tryRejoin();
+    return () => { socket.off('connect', tryRejoin); };
+  }, [navigate]);
+
   // ---- Actions ----
   const createGame = useCallback((settings: GameSettings & { hostName: string; avatar: string }) => {
     socket.emit('createGame', settings as any, (response: any) => {
@@ -149,6 +215,7 @@ export function useGame() {
         setMyPlayerId(response.playerId);
         setIsHost(true);
         setStatus('waiting');
+        saveSession({ pin: response.game.pin, playerId: response.playerId, sessionToken: response.sessionToken });
         navigate(`/lobby/${response.game.pin}`);
       } else {
         setError(response.error || 'Failed to create game');
@@ -167,6 +234,7 @@ export function useGame() {
         setMyPlayerId(response.playerId);
         setIsHost(false);
         setStatus('waiting');
+        saveSession({ pin: data.pin, playerId: response.playerId, sessionToken: response.sessionToken });
         navigate(`/lobby/${data.pin}`);
       } else {
         setError(response.error || 'Failed to join game');
@@ -223,6 +291,9 @@ export function useGame() {
     if (isHost) {
       socket.emit('cancelGame');
     }
+    // Explicit exit: tell the server to free the seat now (a plain disconnect is treated as a refresh)
+    socket.emit('leaveGame' as any);
+    clearSession();
     if (socket.connected) {
       socket.disconnect();
       socket.connect();
@@ -238,7 +309,7 @@ export function useGame() {
   const myPlayer = players.find(p => p._id === myPlayerId);
 
   return {
-    game, players, myPlayerId, myPlayer, myLanguage, isHost, status, currentRound,
+    game, players, myPlayerId, myPlayer, myLanguage, isHost, status, currentRound, rejoining,
     countdown, leaderboard, playerProgress, roundResults, error, canPlayAgain,
     createGame, joinGame, startGame, nextRound, setReady, playAgain, kickPlayer, leaveGame,
     sendProgress, finishRound, cancelGame, updateSettings,

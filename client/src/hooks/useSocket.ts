@@ -19,12 +19,19 @@ export function useSocket() {
     function onConnect() { setIsConnected(true); }
     function onDisconnect() { setIsConnected(false); }
 
+    // Phone woke up / tab came back: reconnect straight away instead of waiting on backoff
+    function onVisible() {
+      if (document.visibilityState === 'visible' && !s.connected) s.connect();
+    }
+
     s.on('connect', onConnect);
     s.on('disconnect', onDisconnect);
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       s.off('connect', onConnect);
       s.off('disconnect', onDisconnect);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 

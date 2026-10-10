@@ -1,11 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { PageTransition } from '../components/layout/PageTransition';
 import { ProgressBar } from '../components/game/ProgressBar';
 import { Timer } from '../components/game/Timer';
 import { useGameContext } from '../contexts/GameContext';
-import { useTimer } from '../hooks/useTimer';
 
 // ============================================================
 // Host Dashboard — Live spectator progress monitoring
@@ -17,7 +16,17 @@ export default function HostDashboard() {
   const { game, players, playerProgress, currentRound, status } = useGameContext();
 
   const duration = currentRound?.timeLimit || game?.settings?.typingTime || 60;
-  const { timeRemaining } = useTimer({ duration, autoStart: true });
+
+  // Derive the clock from when typing started, so it stays right after a refresh
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, []);
+  const startsAt = currentRound?.typingStartsAt;
+  const timeRemaining = startsAt === undefined
+    ? duration
+    : Math.min(duration, Math.max(0, Math.ceil(duration - Math.max(0, now - startsAt) / 1000)));
 
   // Auto-navigate to leaderboard or final results
   useEffect(() => {

@@ -11,7 +11,7 @@ export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(SOC
   autoConnect: false,
   transports: ['websocket', 'polling'],
   reconnection: true,
-  reconnectionAttempts: 5,
+  reconnectionAttempts: Infinity, // phones drop connections often; keep trying
   reconnectionDelay: 1000,
 });
 

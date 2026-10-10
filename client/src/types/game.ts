@@ -45,6 +45,14 @@ export interface RoundData {
   startedAt?: string;
   endedAt?: string;
   timeLimit: number;
+  /** Server: countdown before typing starts (new round) */
+  startsInMs?: number;
+  /** Server, on rejoin: ms since typing started (negative during the countdown) */
+  elapsedMs?: number;
+  /** Server, on rejoin: this player already finished the round */
+  finished?: boolean;
+  /** Client clock time when typing starts, derived from startsInMs / elapsedMs */
+  typingStartsAt?: number;
 }
 
 /** Individual round result for a player */
