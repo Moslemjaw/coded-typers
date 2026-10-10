@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
 
 // Context Providers
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -26,21 +25,22 @@ import Profile from './pages/Profile';
 function AnimatedRoutes() {
   const location = useLocation();
 
+  // No AnimatePresence here: waiting on exit animations could leave the screen blank
+  // when navigations happened back-to-back (host between rounds) or the tab was hidden.
+  // Pages still fade in via PageTransition because Routes remounts per pathname.
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Landing />} />
-        <Route path="/host" element={<HostGame />} />
-        <Route path="/join" element={<JoinGame />} />
-        <Route path="/lobby/:pin" element={<Lobby />} />
-        <Route path="/game/:pin" element={<Game />} />
-        <Route path="/leaderboard/:pin" element={<Leaderboard />} />
-        <Route path="/results/:pin" element={<FinalResults />} />
-        <Route path="/dashboard/:pin" element={<HostDashboard />} />
-        <Route path="/stats" element={<Statistics />} />
-        <Route path="/profile" element={<Profile />} />
-      </Routes>
-    </AnimatePresence>
+    <Routes location={location} key={location.pathname}>
+      <Route path="/" element={<Landing />} />
+      <Route path="/host" element={<HostGame />} />
+      <Route path="/join" element={<JoinGame />} />
+      <Route path="/lobby/:pin" element={<Lobby />} />
+      <Route path="/game/:pin" element={<Game />} />
+      <Route path="/leaderboard/:pin" element={<Leaderboard />} />
+      <Route path="/results/:pin" element={<FinalResults />} />
+      <Route path="/dashboard/:pin" element={<HostDashboard />} />
+      <Route path="/stats" element={<Statistics />} />
+      <Route path="/profile" element={<Profile />} />
+    </Routes>
   );
 }
 
